@@ -1,8 +1,10 @@
 using Example.Application;
+using Example.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
