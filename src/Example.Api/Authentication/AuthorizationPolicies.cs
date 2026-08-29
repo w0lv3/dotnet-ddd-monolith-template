@@ -9,13 +9,15 @@ public static class AuthorizationPolicies
 
     internal static void AddPolicies(AuthorizationOptions options)
     {
-        options.AddPolicy(ExamplesRead, policy => AddScopeRequirement(policy, ExamplesRead));
-        options.AddPolicy(ExamplesWrite, policy => AddScopeRequirement(policy, ExamplesWrite));
+        options.AddPolicy(ExamplesRead, policy => AddPermissionRequirement(policy, ExamplesRead));
+        options.AddPolicy(ExamplesWrite, policy => AddPermissionRequirement(policy, ExamplesWrite));
     }
 
-    private static void AddScopeRequirement(AuthorizationPolicyBuilder policy, string scope)
+    private static void AddPermissionRequirement(
+        AuthorizationPolicyBuilder policy,
+        string permission)
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireAssertion(context => context.User.HasScope(scope));
+        policy.RequireAssertion(context => context.User.HasPermission(permission));
     }
 }

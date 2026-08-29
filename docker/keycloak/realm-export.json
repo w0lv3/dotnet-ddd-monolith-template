@@ -1,0 +1,94 @@
+{
+  "realm": "example",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "examples.read"
+      },
+      {
+        "name": "examples.write"
+      }
+    ]
+  },
+  "clientScopes": [
+    {
+      "name": "examples.read",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "examples.write",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "example-api",
+      "name": "Example API",
+      "enabled": true,
+      "bearerOnly": true,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "example-test",
+      "name": "Local test client",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "local-test-secret",
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "optionalClientScopes": [
+        "examples.read",
+        "examples.write"
+      ],
+      "protocolMappers": [
+        {
+          "name": "example-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "example-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "lightweight.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "developer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "developer@example.local",
+      "firstName": "Local",
+      "lastName": "Developer",
+      "requiredActions": [],
+      "realmRoles": [
+        "examples.read",
+        "examples.write"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Developer123!",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

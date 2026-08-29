@@ -8,7 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApiServices();
-builder.Services.AddApiAuthentication(builder.Configuration);
+builder.Services.AddApiAuthentication(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

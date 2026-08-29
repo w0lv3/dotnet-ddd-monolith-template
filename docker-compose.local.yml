@@ -1,0 +1,17 @@
+services:
+  localstack:
+    image: localstack/localstack:2026.08.0
+    environment:
+      SERVICES: cognito-idp
+      AWS_DEFAULT_REGION: us-east-1
+      DEBUG: "0"
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:-}
+    ports:
+      - "4566:4566"
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal cognito-idp list-user-pools --max-results 1 >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - ./docker/localstack/init-cognito.sh:/etc/localstack/init/ready.d/init-cognito.sh:ro
