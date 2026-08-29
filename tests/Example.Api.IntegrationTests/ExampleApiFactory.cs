@@ -1,11 +1,18 @@
+using System.Net.Http.Headers;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using Example.Application.Interfaces.Services;
-using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 using NSubstitute;
 using NSubstitute.ClearExtensions;
 
@@ -13,6 +20,10 @@ namespace Example.Api.IntegrationTests;
 
 public sealed class ExampleApiFactory : WebApplicationFactory<Program>
 {
+    private const string Audience = "example-api";
+    private const string Issuer = "https://issuer.example";
+    private static readonly SymmetricSecurityKey SigningKey = new(RandomNumberGenerator.GetBytes(32));
+
     public IExampleService ExampleService { get; } = Substitute.For<IExampleService>();
 
     public void ResetService()
@@ -22,9 +33,42 @@ public sealed class ExampleApiFactory : WebApplicationFactory<Program>
 
     public HttpClient CreateHttpsClient()
     {
+        var client = CreateAnonymousHttpsClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateToken("scope", "examples.read", "examples.write"));
+        return client;
+    }
+
+    public HttpClient CreateAnonymousHttpsClient()
+    {
         return CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("https://localhost")
+        });
+    }
+
+    public string CreateToken(string scopeClaimType = "scope", params string[] scopes)
+    {
+        List<Claim> claims =
+        [
+            new("sub", "test-user"),
+            new("email", "test@example.com")
+        ];
+
+        if (scopes.Length > 0)
+        {
+            claims.Add(new Claim(scopeClaimType, string.Join(' ', scopes)));
+        }
+
+        return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        {
+            Audience = Audience,
+            Expires = DateTime.UtcNow.AddMinutes(5),
+            Issuer = Issuer,
+            NotBefore = DateTime.UtcNow.AddMinutes(-1),
+            SigningCredentials = new SigningCredentials(SigningKey, SecurityAlgorithms.HmacSha256),
+            Subject = new ClaimsIdentity(claims)
         });
     }
 
@@ -36,38 +80,29 @@ public sealed class ExampleApiFactory : WebApplicationFactory<Program>
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Database"] =
-                    "Host=localhost;Port=1;Database=test;Username=test;Password=test"
+                    "Host=localhost;Port=1;Database=test;Username=test;Password=test",
+                ["Authentication:Provider"] = "Keycloak",
+                ["Authentication:Authority"] = Issuer,
+                ["Authentication:Audience"] = Audience,
+                ["Authentication:RequireHttpsMetadata"] = "true"
             });
         });
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IExampleService>();
             services.AddSingleton(ExampleService);
-            services.AddSingleton<IStartupFilter, TestUserStartupFilter>();
-        });
-    }
-
-    private sealed class TestUserStartupFilter : IStartupFilter
-    {
-        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
-        {
-            return applicationBuilder =>
-            {
-                applicationBuilder.Use(async (httpContext, nextMiddleware) =>
+            services.PostConfigure<JwtBearerOptions>(
+                JwtBearerDefaults.AuthenticationScheme,
+                options =>
                 {
-                    if (httpContext.Request.Headers.ContainsKey("X-Test-Authenticated"))
+                    var configuration = new OpenIdConnectConfiguration
                     {
-                        var identity = new ClaimsIdentity(
-                            [new Claim(ClaimTypes.NameIdentifier, "test-user")],
-                            "Test");
-                        httpContext.User = new ClaimsPrincipal(identity);
-                    }
-
-                    await nextMiddleware(httpContext);
+                        Issuer = Issuer
+                    };
+                    configuration.SigningKeys.Add(SigningKey);
+                    options.ConfigurationManager =
+                        new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
                 });
-
-                next(applicationBuilder);
-            };
-        }
+        });
     }
 }

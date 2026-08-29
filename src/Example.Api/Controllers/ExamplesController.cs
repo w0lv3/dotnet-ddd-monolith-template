@@ -1,6 +1,8 @@
+using Example.Api.Authentication;
 using Example.Api.Models.Examples;
 using Example.Application.Interfaces.Services;
 using Example.Application.Models.Examples;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Example.Api.Controllers;
@@ -10,6 +12,7 @@ namespace Example.Api.Controllers;
 public sealed class ExamplesController(IExampleService exampleService) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.ExamplesRead)]
     [ProducesResponseType<IReadOnlyCollection<ExampleResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<IReadOnlyCollection<ExampleResponse>>> GetAll(
@@ -21,6 +24,7 @@ public sealed class ExamplesController(IExampleService exampleService) : Control
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.ExamplesRead)]
     [ProducesResponseType<ExampleResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -35,6 +39,7 @@ public sealed class ExamplesController(IExampleService exampleService) : Control
     }
 
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.ExamplesWrite)]
     [ProducesResponseType<ExampleResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
@@ -52,6 +57,7 @@ public sealed class ExamplesController(IExampleService exampleService) : Control
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.ExamplesWrite)]
     [ProducesResponseType<ExampleResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -70,6 +76,7 @@ public sealed class ExamplesController(IExampleService exampleService) : Control
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.ExamplesWrite)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
