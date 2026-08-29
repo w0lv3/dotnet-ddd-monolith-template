@@ -82,9 +82,9 @@ public sealed class ExampleApiFactory : WebApplicationFactory<Program>
                 ["ConnectionStrings:Database"] =
                     "Host=localhost;Port=1;Database=test;Username=test;Password=test",
                 ["Authentication:Provider"] = "Keycloak",
-                ["Authentication:Authority"] = Issuer,
-                ["Authentication:Audience"] = Audience,
-                ["Authentication:RequireHttpsMetadata"] = "true"
+                ["Authentication:Keycloak:Authority"] = Issuer,
+                ["Authentication:Keycloak:Audience"] = Audience,
+                ["Authentication:Keycloak:RequireHttpsMetadata"] = "true"
             });
         });
         builder.ConfigureServices(services =>

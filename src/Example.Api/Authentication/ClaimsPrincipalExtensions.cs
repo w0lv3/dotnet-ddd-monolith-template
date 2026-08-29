@@ -7,12 +7,12 @@ public static class ClaimsPrincipalExtensions
 {
     public static string? GetUserId(this ClaimsPrincipal principal)
     {
-        return principal.FindFirstValue("sub");
+        return principal.FindFirstValue("oid") ?? principal.FindFirstValue("sub");
     }
 
     public static string? GetEmail(this ClaimsPrincipal principal)
     {
-        return principal.FindFirstValue("email");
+        return principal.FindFirstValue("email") ?? principal.FindFirstValue("preferred_username");
     }
 
     public static IReadOnlyCollection<string> GetRoles(this ClaimsPrincipal principal)
@@ -22,7 +22,11 @@ public static class ClaimsPrincipalExtensions
 
     public static IReadOnlyCollection<string> GetGroups(this ClaimsPrincipal principal)
     {
-        return principal.FindAll("groups").Select(claim => claim.Value).ToArray();
+        return principal.FindAll("groups")
+            .Concat(principal.FindAll("cognito:groups"))
+            .Select(claim => claim.Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
     }
 
     public static bool HasScope(this ClaimsPrincipal principal, string requiredScope)
@@ -33,6 +37,17 @@ public static class ClaimsPrincipalExtensions
                 ' ',
                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             .Contains(requiredScope, StringComparer.Ordinal);
+    }
+
+    public static bool HasPermission(this ClaimsPrincipal principal, string requiredPermission)
+    {
+        return principal.HasScope(requiredPermission) ||
+               principal.FindAll("roles")
+                   .Concat(principal.FindAll("permissions"))
+                   .Any(claim => string.Equals(
+                       claim.Value,
+                       requiredPermission,
+                       StringComparison.Ordinal));
     }
 }
 

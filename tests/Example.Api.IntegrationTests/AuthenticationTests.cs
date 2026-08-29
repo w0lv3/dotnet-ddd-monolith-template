@@ -57,7 +57,8 @@ public sealed class AuthenticationTests : IClassFixture<ExampleApiFactory>
     [Theory]
     [InlineData("scope")]
     [InlineData("scp")]
-    public async Task RequiredScope_ReturnsSuccess(string scopeClaimType)
+    [InlineData("roles")]
+    public async Task RequiredPermission_ReturnsSuccess(string permissionClaimType)
     {
         factory.ExampleService
             .GetAllAsync(Arg.Any<CancellationToken>())
@@ -65,7 +66,7 @@ public sealed class AuthenticationTests : IClassFixture<ExampleApiFactory>
         using var client = factory.CreateAnonymousHttpsClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            factory.CreateToken(scopeClaimType, "examples.read"));
+            factory.CreateToken(permissionClaimType, "examples.read"));
 
         var response = await client.GetAsync("/api/examples", CancellationToken.None);
 

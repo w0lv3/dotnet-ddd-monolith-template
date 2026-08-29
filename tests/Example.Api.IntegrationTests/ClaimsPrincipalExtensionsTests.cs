@@ -14,13 +14,15 @@ public sealed class ClaimsPrincipalExtensionsTests
     {
         var principal = CreatePrincipal();
 
-        Assert.Equal("user-123", principal.GetUserId());
+        Assert.Equal("object-456", principal.GetUserId());
         Assert.Equal("user@example.com", principal.GetEmail());
         Assert.Equal(["admin", "operator"], principal.GetRoles());
-        Assert.Equal(["team-one", "team-two"], principal.GetGroups());
+        Assert.Equal(["team-one", "team-two", "cognito-team"], principal.GetGroups());
         Assert.True(principal.HasScope("examples.read"));
         Assert.True(principal.HasScope("examples.write"));
+        Assert.True(principal.HasPermission("examples.read"));
         Assert.False(principal.HasScope("examples.delete"));
+        Assert.False(principal.HasPermission("examples.delete"));
     }
 
     [Fact]
@@ -30,13 +32,13 @@ public sealed class ClaimsPrincipalExtensionsTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Authentication:Provider"] = "Keycloak",
-                ["Authentication:Authority"] = "https://issuer.example",
-                ["Authentication:Audience"] = "example-api"
+                ["Authentication:Keycloak:Authority"] = "https://issuer.example",
+                ["Authentication:Keycloak:Audience"] = "example-api"
             })
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddApiAuthentication(configuration);
+        services.AddApiAuthentication(configuration, false);
         using var serviceProvider = services.BuildServiceProvider();
         serviceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = new DefaultHttpContext
         {
@@ -47,8 +49,22 @@ public sealed class ClaimsPrincipalExtensionsTests
         var currentUser = scope.ServiceProvider.GetRequiredService<ICurrentUser>();
 
         Assert.True(currentUser.IsAuthenticated);
-        Assert.Equal("user-123", currentUser.UserId);
+        Assert.Equal("object-456", currentUser.UserId);
         Assert.Equal("user@example.com", currentUser.Email);
+    }
+
+    [Fact]
+    public void CurrentUser_FallsBackToSubjectAndPreferredUsername()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim("sub", "subject-123"),
+                new Claim("preferred_username", "user@example.com")
+            ],
+            "Test"));
+
+        Assert.Equal("subject-123", principal.GetUserId());
+        Assert.Equal("user@example.com", principal.GetEmail());
     }
 
     private static ClaimsPrincipal CreatePrincipal()
@@ -56,11 +72,13 @@ public sealed class ClaimsPrincipalExtensionsTests
         Claim[] claims =
         [
             new("sub", "user-123"),
+            new("oid", "object-456"),
             new("email", "user@example.com"),
             new("roles", "admin"),
             new("roles", "operator"),
             new("groups", "team-one"),
             new("groups", "team-two"),
+            new("cognito:groups", "cognito-team"),
             new("scope", "examples.read profile"),
             new("scp", "examples.write")
         ];

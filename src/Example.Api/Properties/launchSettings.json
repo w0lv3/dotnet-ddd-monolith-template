@@ -18,6 +18,24 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "cognito-local": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7251;http://localhost:5075",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Authentication__Provider": "Cognito",
+        "Authentication__Cognito__Region": "us-east-1",
+        "Authentication__Cognito__UserPoolId": "us-east-1_examplepool",
+        "Authentication__Cognito__ClientId": "examplelocalclient",
+        "Authentication__Cognito__Authority": "http://localhost:4566/us-east-1_examplepool",
+        "Authentication__Cognito__JwksUri": "http://localhost:4566/us-east-1_examplepool/.well-known/jwks.json",
+        "Authentication__Cognito__ResourceServerIdentifier": "example-api",
+        "Authentication__Cognito__RequireHttpsMetadata": "false",
+        "Authentication__Cognito__UseLocalStack": "true"
+      }
     }
   }
 }
