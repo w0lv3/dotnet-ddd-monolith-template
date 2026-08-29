@@ -92,24 +92,23 @@ public sealed class ProblemDetailsTests : IClassFixture<ExampleApiFactory>, IDis
     }
 
     [Fact]
-    public async Task UnauthorizedException_ForAnonymousUser_ReturnsUnauthorizedProblemDetails()
+    public async Task AnonymousRequest_IsRejectedBeforeCallingApplicationService()
     {
-        ConfigureUnauthorizedException();
+        using var anonymousClient = factory.CreateAnonymousHttpsClient();
 
-        var response = await client.GetAsync("/api/examples", CancellationToken.None);
-        using var document = await ReadProblemAsync(response);
+        var response = await anonymousClient.GetAsync("/api/examples", CancellationToken.None);
 
-        AssertProblem(response, document.RootElement, HttpStatusCode.Unauthorized);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains("Bearer", response.Headers.WwwAuthenticate.Select(header => header.Scheme));
+        await factory.ExampleService.DidNotReceiveWithAnyArgs().GetAllAsync(default);
     }
 
     [Fact]
     public async Task UnauthorizedException_ForAuthenticatedUser_ReturnsForbiddenProblemDetails()
     {
         ConfigureUnauthorizedException();
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/examples");
-        request.Headers.Add("X-Test-Authenticated", "true");
 
-        var response = await client.SendAsync(request, CancellationToken.None);
+        var response = await client.GetAsync("/api/examples", CancellationToken.None);
         using var document = await ReadProblemAsync(response);
 
         AssertProblem(response, document.RootElement, HttpStatusCode.Forbidden);
