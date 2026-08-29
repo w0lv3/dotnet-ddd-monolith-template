@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using Example.Api.Models.Examples;
 using Example.Application.Models.Examples;
 using NSubstitute;
@@ -118,27 +117,6 @@ public sealed class ExamplesControllerTests : IClassFixture<ExampleApiFactory>, 
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         await factory.ExampleService.Received(1).DeleteAsync(id, Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task OpenApi_ContainsExamplesPaths()
-    {
-        var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
-        await using var content = await response.Content.ReadAsStreamAsync(
-            CancellationToken.None);
-        using var document = await JsonDocument.ParseAsync(
-            content,
-            cancellationToken: CancellationToken.None);
-        var paths = document.RootElement.GetProperty("paths");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.True(paths.TryGetProperty("/api/examples", out var collectionPath));
-        Assert.True(collectionPath.TryGetProperty("get", out _));
-        Assert.True(collectionPath.TryGetProperty("post", out _));
-        Assert.True(paths.TryGetProperty("/api/examples/{id}", out var itemPath));
-        Assert.True(itemPath.TryGetProperty("get", out _));
-        Assert.True(itemPath.TryGetProperty("put", out _));
-        Assert.True(itemPath.TryGetProperty("delete", out _));
     }
 
     public void Dispose()

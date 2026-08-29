@@ -1,0 +1,370 @@
+openapi: '3.1.1'
+info:
+  title: Example.Api API
+  description: 'A simplified layered Domain-Driven Design API. Protected operations require JWT bearer tokens with the documented permissions in scope, scp, or roles claims.'
+  version: v1
+servers:
+  - url: /
+paths:
+  /api/examples:
+    get:
+      tags:
+        - Examples
+      summary: List examples
+      description: Returns all examples. Requires the examples.read permission.
+      operationId: GetExamples
+      responses:
+        '401':
+          description: Authentication is required.
+        '403':
+          description: The bearer token lacks the required permission.
+        '200':
+          description: The examples were returned.
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExampleResponse'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExampleResponse'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExampleResponse'
+        '500':
+          description: An unexpected error occurred.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      security:
+        - Bearer: [ ]
+      x-required-permissions:
+        - examples.read
+    post:
+      tags:
+        - Examples
+      summary: Create an example
+      description: Creates an example. Requires the examples.write permission.
+      operationId: CreateExample
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExampleRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CreateExampleRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CreateExampleRequest'
+        required: true
+      responses:
+        '401':
+          description: Authentication is required.
+        '403':
+          description: The bearer token lacks the required permission.
+        '201':
+          description: The example was created.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+        '400':
+          description: The request failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/HttpValidationProblemDetails'
+        '409':
+          description: An example with the same name already exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: An unexpected error occurred.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      security:
+        - Bearer: [ ]
+      x-required-permissions:
+        - examples.write
+  '/api/examples/{id}':
+    get:
+      tags:
+        - Examples
+      summary: Get an example
+      description: Returns one example by identifier. Requires the examples.read permission.
+      operationId: GetExampleById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '401':
+          description: Authentication is required.
+        '403':
+          description: The bearer token lacks the required permission.
+        '200':
+          description: The example was returned.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+        '400':
+          description: The identifier is invalid.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The example was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: An unexpected error occurred.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      security:
+        - Bearer: [ ]
+      x-required-permissions:
+        - examples.read
+    put:
+      tags:
+        - Examples
+      summary: Update an example
+      description: Updates an example by identifier. Requires the examples.write permission.
+      operationId: UpdateExample
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateExampleRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/UpdateExampleRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/UpdateExampleRequest'
+        required: true
+      responses:
+        '401':
+          description: Authentication is required.
+        '403':
+          description: The bearer token lacks the required permission.
+        '200':
+          description: The example was updated.
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ExampleResponse'
+        '400':
+          description: The request failed validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/HttpValidationProblemDetails'
+        '404':
+          description: The example was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: An example with the same name already exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: An unexpected error occurred.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      security:
+        - Bearer: [ ]
+      x-required-permissions:
+        - examples.write
+    delete:
+      tags:
+        - Examples
+      summary: Delete an example
+      description: Deletes an example by identifier. Requires the examples.write permission.
+      operationId: DeleteExample
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '401':
+          description: Authentication is required.
+        '403':
+          description: The bearer token lacks the required permission.
+        '204':
+          description: The example was deleted.
+        '400':
+          description: The identifier is invalid.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The example was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: An unexpected error occurred.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      security:
+        - Bearer: [ ]
+      x-required-permissions:
+        - examples.write
+components:
+  schemas:
+    CreateExampleRequest:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          type:
+            - 'null'
+            - string
+    HttpValidationProblemDetails:
+      type: object
+      properties:
+        type:
+          type:
+            - 'null'
+            - string
+        title:
+          type:
+            - 'null'
+            - string
+        status:
+          pattern: '^-?(?:0|[1-9]\d*)$'
+          type:
+            - 'null'
+            - integer
+            - string
+          format: int32
+        detail:
+          type:
+            - 'null'
+            - string
+        instance:
+          type:
+            - 'null'
+            - string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type:
+            - 'null'
+            - string
+        title:
+          type:
+            - 'null'
+            - string
+        status:
+          pattern: '^-?(?:0|[1-9]\d*)$'
+          type:
+            - 'null'
+            - integer
+            - string
+          format: int32
+        detail:
+          type:
+            - 'null'
+            - string
+        instance:
+          type:
+            - 'null'
+            - string
+    ExampleResponse:
+      required:
+        - id
+        - name
+        - status
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+    UpdateExampleRequest:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          type:
+            - 'null'
+            - string
+  securitySchemes:
+    Bearer:
+      type: http
+      description: 'JWT bearer token. GET operations require examples.read; POST, PUT, and DELETE operations require examples.write. Permissions may be supplied through OAuth scope/scp claims or roles.'
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+  - name: Examples
