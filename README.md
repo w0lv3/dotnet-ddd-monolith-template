@@ -62,6 +62,28 @@ Run the API:
 dotnet run --project src/Cinema.Api/Cinema.Api.csproj
 ```
 
+In Development, the runtime OpenAPI 3.1 contract is available as JSON and YAML:
+
+```text
+/openapi/v1.json
+/openapi/v1.yaml
+```
+
+Generate the checked-in YAML contract from the running API metadata:
+
+```bash
+sh scripts/generate-openapi.sh
+```
+
+Verify that the checked-in contract is current without modifying it:
+
+```bash
+sh scripts/generate-openapi.sh --check
+```
+
+Controllers, models, and runtime OpenAPI metadata are the source of truth. Do not edit
+`openapi/openapi.yaml` manually; regenerate it after API contract changes.
+
 Stop local infrastructure:
 
 ```bash
