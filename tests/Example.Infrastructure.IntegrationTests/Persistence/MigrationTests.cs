@@ -4,11 +4,16 @@ namespace Example.Infrastructure.IntegrationTests.Persistence;
 
 [Collection(PostgreSqlCollection.Name)]
 public sealed class MigrationTests(PostgreSqlFixture fixture)
+    : PostgreSqlIntegrationTest(fixture)
 {
     [Fact]
-    public async Task InitialMigration_IsApplied()
+    public async Task Migrations_ApplyToEmptyDatabaseWithoutPendingMigrations()
     {
-        await using var dbContext = fixture.CreateDbContext();
+        await using var dbContext = Fixture.CreateDbContext();
+
+        await dbContext.Database.ExecuteSqlRawAsync(
+            "DROP SCHEMA public CASCADE; CREATE SCHEMA public");
+        await dbContext.Database.MigrateAsync();
 
         var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync();
         var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();

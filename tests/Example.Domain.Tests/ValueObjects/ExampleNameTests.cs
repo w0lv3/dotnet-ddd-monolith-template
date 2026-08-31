@@ -28,7 +28,19 @@ public sealed class ExampleNameTests
     [InlineData("   ")]
     public void Create_WithMissingValue_ThrowsDomainException(string? value)
     {
-        Assert.Throws<DomainException>(() => ExampleName.Create(value));
+        var exception = Assert.Throws<DomainException>(() => ExampleName.Create(value));
+
+        Assert.Equal("Example name is required.", exception.Message);
+    }
+
+    [Fact]
+    public void Create_WithValueAtMaximumLength_CreatesName()
+    {
+        var value = new string('a', ExampleName.MaximumLength);
+
+        var name = ExampleName.Create(value);
+
+        Assert.Equal(value, name.Value);
     }
 
     [Fact]
@@ -36,7 +48,9 @@ public sealed class ExampleNameTests
     {
         var value = new string('a', ExampleName.MaximumLength + 1);
 
-        Assert.Throws<DomainException>(() => ExampleName.Create(value));
+        var exception = Assert.Throws<DomainException>(() => ExampleName.Create(value));
+
+        Assert.Equal($"Example name cannot exceed {ExampleName.MaximumLength} characters.", exception.Message);
     }
 
     [Fact]

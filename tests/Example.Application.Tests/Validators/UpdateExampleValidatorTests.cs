@@ -17,6 +17,18 @@ public sealed class UpdateExampleValidatorTests
     }
 
     [Fact]
+    public void Validate_WithNameAtMaximumLength_IsValid()
+    {
+        var model = new UpdateExampleModel(
+            Guid.NewGuid(),
+            new string('a', ExampleName.MaximumLength));
+
+        var result = validator.Validate(model);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
     public void Validate_WithEmptyIdentifier_IsInvalid()
     {
         var result = validator.Validate(new UpdateExampleModel(Guid.Empty, "Example name"));

@@ -1,118 +1,156 @@
 # Simplified Layered DDD Monolith Template
 
-A reusable ASP.NET Core template for building a monolith with simplified layered Domain-Driven Design.
+A production-oriented ASP.NET Core template for a modular monolith using simplified layered Domain-Driven Design. It favors explicit application services and repository interfaces over CQRS, MediatR, vertical slices, generic repositories, or microservices.
+
+See [Architecture](docs/architecture.md) for the design rationale and detailed feature workflow.
 
 ## Prerequisites
 
 - .NET SDK 10.0.300 or a compatible .NET 10 feature band
-- Docker for local PostgreSQL and Infrastructure integration tests
+- Docker with Compose for local dependencies and PostgreSQL integration tests
+- A LocalStack auth token for the licensed local Cognito service
+- A POSIX shell and `curl`; `jq` is also required by the identity smoke scripts
 
-## Install
+## Quick Start
 
-From the repository root:
+Except for [Template Authoring](#template-authoring), run every command from the source or generated project root. In a generated project, `Example` in paths and names is replaced with the name supplied to `dotnet new`.
 
-```bash
-dotnet new install .
-```
-
-To install an updated local version, run the same command again.
-
-## Generate
+Create a local Compose environment file and set `LOCALSTACK_AUTH_TOKEN` in it:
 
 ```bash
-dotnet new ddd-monolith -n Cinema
+cp .env.example .env
 ```
 
-The command creates a `Cinema` directory containing:
-
-```text
-Cinema.slnx
-src/
-├── Cinema.Api/
-├── Cinema.Application/
-├── Cinema.Domain/
-└── Cinema.Infrastructure/
-tests/
-├── Cinema.Api.IntegrationTests/
-├── Cinema.Architecture.Tests/
-├── Cinema.Application.Tests/
-├── Cinema.Domain.Tests/
-└── Cinema.Infrastructure.IntegrationTests/
-```
-
-## Build And Test
+Start PostgreSQL, Keycloak, and LocalStack Cognito, then apply the database migrations:
 
 ```bash
-dotnet build Cinema/Cinema.slnx
-dotnet test Cinema/Cinema.slnx
-```
-
-## Local PostgreSQL
-
-Start PostgreSQL and apply migrations from the generated project directory:
-
-```bash
-docker compose up -d --wait postgres
+docker compose -f docker-compose.local.yml up -d --wait
+export ConnectionStrings__Database='Host=localhost;Port=5433;Database=app;Username=postgres;Password=postgres'
 bash scripts/migrate.sh
 ```
 
-Run the API:
+Run the API with the default Development Keycloak configuration:
 
 ```bash
-dotnet run --project src/Cinema.Api/Cinema.Api.csproj
-```
-
-In Development, the runtime OpenAPI 3.1 contract is available as JSON and YAML:
-
-```text
-/openapi/v1.json
-/openapi/v1.yaml
-```
-
-Generate the checked-in YAML contract from the running API metadata:
-
-```bash
-sh scripts/generate-openapi.sh
-```
-
-Verify that the checked-in contract is current without modifying it:
-
-```bash
-sh scripts/generate-openapi.sh --check
-```
-
-Controllers, models, and runtime OpenAPI metadata are the source of truth. Do not edit
-`openapi/openapi.yaml` manually; regenerate it after API contract changes.
-
-Stop local infrastructure:
-
-```bash
-docker compose down
-```
-
-The committed PostgreSQL credentials are for local development only. Override the database connection string in other environments with `ConnectionStrings__Database`.
-The local container exposes PostgreSQL on host port `5433` to avoid common conflicts with an existing PostgreSQL installation on `5432`.
-
-Migrations are applied explicitly and are not run automatically during application startup.
-
-## Authentication
-
-The API supports Keycloak, AWS Cognito, and Microsoft Entra ID through the same bearer-token
-and authorization-policy boundary. Select one provider with `Authentication__Provider`.
-The protected example endpoints require `examples.read` for GET requests and
-`examples.write` for POST, PUT, and DELETE requests. Permissions can be supplied through
-`scope`, `scp`, or `roles` claims.
-
-### Local Keycloak
-
-Keycloak is the default Development provider. Start PostgreSQL and Keycloak:
-
-```bash
-docker compose up -d --wait
 dotnet run --project src/Example.Api/Example.Api.csproj
 ```
 
-The imported realm contains local-only credentials. Retrieve a read token:
+The default HTTP launch URL is `http://localhost:5075`. Development OpenAPI documents are available at `/openapi/v1.json` and `/openapi/v1.yaml`.
+
+## Project Structure
+
+```text
+Example.slnx
+src/
+├── Example.Api/
+├── Example.Application/
+├── Example.Domain/
+└── Example.Infrastructure/
+tests/
+├── Example.Api.IntegrationTests/
+├── Example.Architecture.Tests/
+├── Example.Application.Tests/
+├── Example.Domain.Tests/
+└── Example.Infrastructure.IntegrationTests/
+```
+
+The dependency direction is inward:
+
+```text
+Api ───────────────► Application
+ │                         │
+ └──► Infrastructure ──────┴──► Domain
+```
+
+- **Domain** owns entities, value objects, invariants, and behavior without framework dependencies.
+- **Application** owns use cases, service and repository interfaces, DTOs, validation, and mapping.
+- **Infrastructure** implements persistence and other external integrations with EF Core and PostgreSQL.
+- **API** owns HTTP models, controllers, authentication, authorization, ProblemDetails, OpenAPI, and composition.
+
+Architecture tests enforce project references, forbidden dependencies, framework isolation, and key type ownership.
+
+## Build And Test
+
+Build or run the complete xUnit suite from either project root:
+
+```bash
+dotnet build
+dotnet test
+```
+
+Docker must be running for the PostgreSQL-backed Infrastructure and API integration tests. Run one project when a narrower check is sufficient:
+
+```bash
+dotnet test tests/Example.Domain.Tests/Example.Domain.Tests.csproj
+dotnet test tests/Example.Application.Tests/Example.Application.Tests.csproj
+dotnet test tests/Example.Infrastructure.IntegrationTests/Example.Infrastructure.IntegrationTests.csproj
+dotnet test tests/Example.Api.IntegrationTests/Example.Api.IntegrationTests.csproj
+dotnet test tests/Example.Architecture.Tests/Example.Architecture.Tests.csproj
+```
+
+## Configuration And Secrets
+
+Configuration is grouped under `ConnectionStrings`, `Authentication`, `OpenApi`, and `Logging`. With the default ASP.NET Core host, later sources override earlier ones: `appsettings.json`, environment-specific appsettings, Development user-secrets, environment variables, then command-line arguments.
+
+Committed settings contain placeholders or local-only defaults. Store developer secrets with user-secrets:
+
+```bash
+dotnet user-secrets set 'ConnectionStrings:Database' 'Host=localhost;Port=5433;Database=app;Username=postgres;Password=postgres' --project src/Example.Api/Example.Api.csproj
+```
+
+Use double underscores for nested environment keys, for example `ConnectionStrings__Database` and `Authentication__Provider`. The API reads user-secrets in Development; EF design-time commands deliberately require the `ConnectionStrings__Database` environment variable.
+
+Docker Compose reads `.env` automatically. The .NET application does not load `.env`; export API variables in the shell or use user-secrets. Never commit `.env`, cloud credentials, client secrets, tokens, or production connection strings.
+
+## Local Dependencies
+
+`docker-compose.local.yml` is the standalone local dependency stack. It starts PostgreSQL on `5433`, Keycloak on `8080`, and LocalStack on `4566`; the API runs separately with `dotnet run`. The LocalStack Cognito service is licensed, so Compose configuration fails unless `LOCALSTACK_AUTH_TOKEN` is set in the environment or `.env`.
+
+```bash
+docker compose -f docker-compose.local.yml up -d --wait
+docker compose -f docker-compose.local.yml ps
+docker compose -f docker-compose.local.yml logs -f keycloak
+docker compose -f docker-compose.local.yml down
+```
+
+Reset all persisted PostgreSQL, Keycloak, and LocalStack data when deterministic initialization is needed:
+
+```bash
+docker compose -f docker-compose.local.yml down --volumes
+```
+
+Ports and local-only credentials can be changed with the variables shown in `.env.example`. Keep the API connection string and provider URLs aligned with any port overrides.
+
+## Persistence And Migrations
+
+Persistence belongs to Infrastructure. `ApplicationDbContext`, entity configurations, repository implementations, and migrations use EF Core with PostgreSQL. Migrations are explicit and never run during API startup.
+
+Apply existing migrations:
+
+```bash
+export ConnectionStrings__Database='Host=localhost;Port=5433;Database=app;Username=postgres;Password=postgres'
+bash scripts/migrate.sh
+```
+
+Create a migration after changing persistence mappings:
+
+```bash
+dotnet tool restore
+dotnet ef migrations add AddFeature \
+  --project src/Example.Infrastructure/Example.Infrastructure.csproj \
+  --startup-project src/Example.Infrastructure/Example.Infrastructure.csproj \
+  --output-dir Persistence/Migrations
+```
+
+## Authentication And Authorization
+
+Select exactly one JWT bearer provider with `Authentication__Provider`: `Keycloak`, `Cognito`, or `EntraId`. Only the selected provider is validated at startup. Production validation checks signature, issuer, token lifetime, and audience when configured. HTTP metadata and LocalStack are restricted to safe Development scenarios.
+
+The example API uses provider-independent `examples.read` and `examples.write` policies. Permissions may come from `scope`/`scp`, `roles`, or normalized provider claims. Application code can depend on `ICurrentUser`; `HttpContext` and provider-specific claim handling remain in the API boundary.
+
+### Keycloak
+
+Keycloak is the default Development provider. The imported realm contains local-only test credentials. With the dependency stack running, retrieve a read token:
 
 ```bash
 ACCESS_TOKEN=$(curl --fail --silent --show-error \
@@ -123,93 +161,73 @@ ACCESS_TOKEN=$(curl --fail --silent --show-error \
   --data username=developer \
   --data 'password=Developer123!' \
   --data scope=examples.read | jq -er '.access_token')
-```
 
-Use the returned `access_token`:
-
-```bash
 curl --fail --header "Authorization: Bearer $ACCESS_TOKEN" \
-  https://localhost:7251/api/examples
+  http://localhost:5075/api/examples
 ```
 
-The realm, client secret, user, and password are safe local-development values and must not
-be reused outside the local environment.
+These realm credentials are only for local development and must not be reused elsewhere.
 
-### Production Cognito
+### AWS Cognito And LocalStack
 
-Set the following values through deployment configuration:
+For AWS Cognito, configure `Region`, `UserPoolId`, and `ClientId` under `Authentication:Cognito`; `Authority` is derived when omitted. `Audience` is optional, and `ResourceServerIdentifier` removes prefixes such as `example-api/` from custom scopes. Only access tokens with the configured `client_id` are accepted.
 
-```text
-Authentication__Provider=Cognito
-Authentication__Cognito__Region=us-east-1
-Authentication__Cognito__UserPoolId=us-east-1_...
-Authentication__Cognito__ClientId=...
-Authentication__Cognito__Audience=https://api.example.com
-Authentication__Cognito__ResourceServerIdentifier=example-api
-```
-
-`Authority` is derived from the region and user-pool ID when omitted. Cognito tokens must be
-access tokens with a matching `client_id`. `Audience` is optional and, when configured,
-requires a matching resource-bound `aud` claim. Custom scopes such as
-`example-api/examples.read` are normalized to the common policy name.
-
-### LocalStack Cognito
-
-LocalStack is a separate local Cognito environment:
+LocalStack creates deterministic local pool, client, resource server, scopes, groups, and user data. Start the standalone stack, run the API with its local profile, then execute the smoke check in another shell:
 
 ```bash
-export LOCALSTACK_AUTH_TOKEN=your-localstack-auth-token
-docker compose -f compose.yml -f docker-compose.local.yml up -d --wait
 dotnet run --project src/Example.Api/Example.Api.csproj --launch-profile cognito-local
-```
-
-The initialization hook creates deterministic pool and client IDs, an `example-api` resource
-server, read/write scopes and groups, and a development user. LocalStack HTTP issuer and JWKS
-settings are rejected outside Development. Cognito is a licensed LocalStack service, so provide
-`LOCALSTACK_AUTH_TOKEN` through your shell or secret store; never commit it.
-
-Retrieve the generated local client secret and request a machine token:
-
-```bash
-CLIENT_SECRET=$(docker compose -f compose.yml -f docker-compose.local.yml \
-  exec -T localstack awslocal cognito-idp describe-user-pool-client \
-  --user-pool-id us-east-1_examplepool \
-  --client-id examplelocalclient \
-  --query UserPoolClient.ClientSecret --output text)
-
-curl --fail --silent --show-error \
-  --user "examplelocalclient:$CLIENT_SECRET" \
-  --data grant_type=client_credentials \
-  --data scope=example-api/examples.read \
-  http://cognito-idp.localhost.localstack.cloud:4566/_aws/cognito-idp/oauth2/token
-```
-
-With the API running under the `cognito-local` profile, the same end-to-end check is available as:
-
-```bash
 bash scripts/smoke-localstack-cognito.sh
 ```
 
+`Authentication:Cognito:UseLocalStack=true`, HTTP issuer metadata, and the local JWKS URI are rejected outside Development.
+
 ### Microsoft Entra ID
 
-Register a single-tenant web API, expose delegated scopes named `examples.read` and
-`examples.write`, and optionally define application roles with the same values for
-client-credential callers. Configure:
+Register a single-tenant web API and expose delegated scopes or application roles named `examples.read` and `examples.write`. Configure `Authentication__EntraId__TenantId`, `ClientId`, `Instance`, and optionally `Audience`, then set `Authentication__Provider=EntraId`. Delegated permissions use `scp`; application permissions use `roles`. Current-user identity prefers `oid` over `sub`, and email falls back to `preferred_username`.
 
-```text
-Authentication__Provider=EntraId
-Authentication__EntraId__Instance=https://login.microsoftonline.com/
-Authentication__EntraId__TenantId=...
-Authentication__EntraId__ClientId=...
-Authentication__EntraId__Audience=api://...
-```
+## OpenAPI
 
-Entra delegated permissions are read from `scp`; application permissions are read from
-`roles`. Current-user identification prefers `oid` over `sub`, while email falls back to
-`preferred_username` when the optional `email` claim is absent.
-
-## Uninstall
+OpenAPI is enabled by `OpenApi__Enabled` and defaults to Development only. Controllers, API models, and endpoint metadata are the source of truth. Generate the checked-in OpenAPI 3.1 YAML rather than editing `openapi/openapi.yaml`:
 
 ```bash
-dotnet new uninstall /path/to/dotnet-ddd-monolith-template
+sh scripts/generate-openapi.sh
+sh scripts/generate-openapi.sh --check
+```
+
+The script builds and starts the API on an isolated local port before downloading `/openapi/v1.yaml`.
+
+## Adding A Feature
+
+Add behavior from the inside out: Domain model and tests, Application models/interfaces/service/validation/mapping, Infrastructure repository and EF configuration, then API request/response models and a thin controller. Add a migration for schema changes and test at the narrowest appropriate layer. The complete path is documented in [Adding A Feature](docs/architecture.md#adding-a-feature).
+
+## Troubleshooting
+
+- Compose reports `LOCALSTACK_AUTH_TOKEN` is required: set a valid token in `.env` or export it before every Compose command.
+- `scripts/migrate.sh` reports a missing connection string: export `ConnectionStrings__Database`; user-secrets are not read by the design-time factory.
+- PostgreSQL, Keycloak, or LocalStack cannot bind: override `POSTGRES_PORT`, `KEYCLOAK_PORT`, or `LOCALSTACK_PORT` and update API configuration accordingly.
+- Authentication startup fails: configure all required values for the provider selected by `Authentication__Provider`; unused providers may remain empty.
+- Integration tests cannot start PostgreSQL: ensure Docker is running and available to Testcontainers.
+- Local identity initialization is stale: run `docker compose -f docker-compose.local.yml down --volumes`, then start the stack again.
+
+## Template Authoring
+
+These commands are only for a template author or contributor and run from the template repository root:
+
+```bash
+dotnet new install .
+dotnet new ddd-monolith -n Cinema
+```
+
+The generated project is in `Cinema/`. Change to that directory before using the root-level build, test, Compose, migration, and run commands documented above:
+
+```bash
+cd Cinema
+dotnet build
+dotnet test
+```
+
+Re-run `dotnet new install .` after changing the local template. Uninstall that local source with its absolute path:
+
+```bash
+dotnet new uninstall /absolute/path/to/dotnet-ddd-monolith-template
 ```
