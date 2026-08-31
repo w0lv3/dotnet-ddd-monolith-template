@@ -9,12 +9,12 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     private readonly PostgreSqlContainer container = new PostgreSqlBuilder("postgres:17-alpine")
         .Build();
 
+    public string ConnectionString => container.GetConnectionString();
+
     public async Task InitializeAsync()
     {
         await container.StartAsync();
-
-        await using var dbContext = CreateDbContext();
-        await dbContext.Database.MigrateAsync();
+        await ResetAsync();
     }
 
     public async Task DisposeAsync()
@@ -25,9 +25,16 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     public ApplicationDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseNpgsql(container.GetConnectionString())
+            .UseNpgsql(ConnectionString)
             .Options;
 
         return new ApplicationDbContext(options);
+    }
+
+    public async Task ResetAsync()
+    {
+        await using var dbContext = CreateDbContext();
+        await dbContext.Database.MigrateAsync();
+        await dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE \"Examples\"");
     }
 }

@@ -5,16 +5,15 @@ namespace Example.Infrastructure.Persistence;
 
 public sealed class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
-    private const string LocalConnectionString =
-        "Host=localhost;Port=5433;Database=app;Username=postgres;Password=postgres";
-
     public ApplicationDbContext CreateDbContext(string[] args)
     {
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__Database");
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
-            connectionString = LocalConnectionString;
+            throw new InvalidOperationException(
+                "The ConnectionStrings__Database environment variable is required for design-time " +
+                "database operations. Set it before running dotnet ef or scripts/migrate.sh.");
         }
 
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()

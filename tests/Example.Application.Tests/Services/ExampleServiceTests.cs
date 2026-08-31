@@ -42,6 +42,7 @@ public sealed class ExampleServiceTests
 
         Assert.Equal(entity.Id, result.Id);
         Assert.Equal(entity.Name.Value, result.Name);
+        Assert.Equal(entity.Status.ToString(), result.Status);
         await repository.Received(1).GetByIdAsync(entity.Id, cancellationToken);
     }
 
@@ -55,6 +56,8 @@ public sealed class ExampleServiceTests
             () => service.GetByIdAsync(id, CancellationToken.None));
 
         Assert.Equal(id, exception.Id);
+        Assert.Equal($"Example entity with identifier '{id}' was not found.", exception.Message);
+        await repository.Received(1).GetByIdAsync(id, CancellationToken.None);
     }
 
     [Fact]
@@ -69,12 +72,27 @@ public sealed class ExampleServiceTests
     [Fact]
     public async Task GetAllAsync_ReturnsMappedDtos()
     {
+        var cancellationToken = new CancellationTokenSource().Token;
         var entities = new[] { CreateEntity(), CreateEntity() };
-        repository.GetAllAsync(Arg.Any<CancellationToken>()).Returns(entities);
+        entities[1].Activate();
+        repository.GetAllAsync(cancellationToken).Returns(entities);
 
-        var result = await service.GetAllAsync(CancellationToken.None);
+        var result = await service.GetAllAsync(cancellationToken);
 
-        Assert.Equal(entities.Select(entity => entity.Id), result.Select(dto => dto.Id));
+        Assert.Collection(
+            result,
+            dto => AssertDtoMatchesEntity(dto, entities[0]),
+            dto => AssertDtoMatchesEntity(dto, entities[1]));
+        await repository.Received(1).GetAllAsync(cancellationToken);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithNullModel_DoesNotCallRepository()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => service.CreateAsync(null!, CancellationToken.None));
+
+        Assert.Empty(repository.ReceivedCalls());
     }
 
     [Fact]
@@ -82,12 +100,16 @@ public sealed class ExampleServiceTests
     {
         var cancellationToken = new CancellationTokenSource().Token;
 
-        var result = await service.CreateAsync(new CreateExampleModel("Example name"), cancellationToken);
+        var result = await service.CreateAsync(new CreateExampleModel("  Example name  "), cancellationToken);
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal("Example name", result.Name);
+        Assert.Equal("Inactive", result.Status);
         await repository.Received(1).AddAsync(
-            Arg.Is<ExampleEntity>(entity => entity.Id == result.Id),
+            Arg.Is<ExampleEntity>(entity =>
+                entity.Id == result.Id &&
+                entity.Name.Value == "Example name" &&
+                entity.Status == Example.Domain.Enums.ExampleStatus.Inactive),
             cancellationToken);
     }
 
@@ -110,7 +132,7 @@ public sealed class ExampleServiceTests
         repository.GetByIdAsync(entity.Id, cancellationToken).Returns(entity);
 
         var result = await service.UpdateAsync(
-            new UpdateExampleModel(entity.Id, "Renamed example"),
+            new UpdateExampleModel(entity.Id, "  Renamed example  "),
             cancellationToken);
 
         Assert.Equal("Renamed example", entity.Name.Value);
@@ -119,16 +141,53 @@ public sealed class ExampleServiceTests
     }
 
     [Fact]
+    public async Task UpdateAsync_WithNullModel_DoesNotCallRepository()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => service.UpdateAsync(null!, CancellationToken.None));
+
+        Assert.Empty(repository.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithInvalidModel_DoesNotAccessRepositoryOrMutateEntity()
+    {
+        var entity = CreateEntity();
+        var originalName = entity.Name;
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => service.UpdateAsync(
+                new UpdateExampleModel(entity.Id, " "),
+                CancellationToken.None));
+
+        Assert.Equal(originalName, entity.Name);
+        Assert.Empty(repository.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithEmptyIdentifier_DoesNotCallRepository()
+    {
+        await Assert.ThrowsAsync<ValidationException>(
+            () => service.UpdateAsync(
+                new UpdateExampleModel(Guid.Empty, "Example name"),
+                CancellationToken.None));
+
+        Assert.Empty(repository.ReceivedCalls());
+    }
+
+    [Fact]
     public async Task UpdateAsync_WithMissingEntity_ThrowsExampleNotFoundException()
     {
         var id = Guid.NewGuid();
         repository.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns((ExampleEntity?)null);
 
-        await Assert.ThrowsAsync<ExampleNotFoundException>(
+        var exception = await Assert.ThrowsAsync<ExampleNotFoundException>(
             () => service.UpdateAsync(
                 new UpdateExampleModel(id, "Example name"),
                 CancellationToken.None));
 
+        Assert.Equal(id, exception.Id);
+        await repository.Received(1).GetByIdAsync(id, CancellationToken.None);
         await repository.DidNotReceiveWithAnyArgs().UpdateAsync(default!, default);
     }
 
@@ -150,10 +209,28 @@ public sealed class ExampleServiceTests
         var id = Guid.NewGuid();
         repository.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns((ExampleEntity?)null);
 
-        await Assert.ThrowsAsync<ExampleNotFoundException>(
+        var exception = await Assert.ThrowsAsync<ExampleNotFoundException>(
             () => service.DeleteAsync(id, CancellationToken.None));
 
+        Assert.Equal(id, exception.Id);
+        await repository.Received(1).GetByIdAsync(id, CancellationToken.None);
         await repository.DidNotReceiveWithAnyArgs().DeleteAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithEmptyIdentifier_DoesNotCallRepository()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => service.DeleteAsync(Guid.Empty, CancellationToken.None));
+
+        Assert.Empty(repository.ReceivedCalls());
+    }
+
+    private static void AssertDtoMatchesEntity(ExampleDto dto, ExampleEntity entity)
+    {
+        Assert.Equal(entity.Id, dto.Id);
+        Assert.Equal(entity.Name.Value, dto.Name);
+        Assert.Equal(entity.Status.ToString(), dto.Status);
     }
 
     private static ExampleEntity CreateEntity()

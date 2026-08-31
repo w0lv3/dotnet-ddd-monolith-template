@@ -16,6 +16,16 @@ public sealed class CreateExampleValidatorTests
         Assert.True(result.IsValid);
     }
 
+    [Fact]
+    public void Validate_WithNameAtMaximumLength_IsValid()
+    {
+        var model = new CreateExampleModel(new string('a', ExampleName.MaximumLength));
+
+        var result = validator.Validate(model);
+
+        Assert.True(result.IsValid);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

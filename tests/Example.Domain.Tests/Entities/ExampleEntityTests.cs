@@ -25,13 +25,17 @@ public sealed class ExampleEntityTests
     {
         var name = ExampleName.Create("Example name");
 
-        Assert.Throws<DomainException>(() => ExampleEntity.Create(Guid.Empty, name));
+        var exception = Assert.Throws<DomainException>(() => ExampleEntity.Create(Guid.Empty, name));
+
+        Assert.Equal("Example entity identifier cannot be empty.", exception.Message);
     }
 
     [Fact]
     public void Create_WithNullName_ThrowsDomainException()
     {
-        Assert.Throws<DomainException>(() => ExampleEntity.Create(Guid.NewGuid(), null));
+        var exception = Assert.Throws<DomainException>(() => ExampleEntity.Create(Guid.NewGuid(), null));
+
+        Assert.Equal("Example name is required.", exception.Message);
     }
 
     [Fact]
@@ -51,7 +55,9 @@ public sealed class ExampleEntityTests
         var entity = CreateEntity();
         var originalName = entity.Name;
 
-        Assert.Throws<DomainException>(() => entity.Rename(null));
+        var exception = Assert.Throws<DomainException>(() => entity.Rename(null));
+
+        Assert.Equal("Example name is required.", exception.Message);
         Assert.Equal(originalName, entity.Name);
     }
 
@@ -71,7 +77,9 @@ public sealed class ExampleEntityTests
         var entity = CreateEntity();
         entity.Activate();
 
-        Assert.Throws<DomainException>(entity.Activate);
+        var exception = Assert.Throws<DomainException>(entity.Activate);
+
+        Assert.Equal("Example entity cannot transition from 'Active' to 'Active'.", exception.Message);
         Assert.Equal(ExampleStatus.Active, entity.Status);
     }
 
@@ -91,7 +99,9 @@ public sealed class ExampleEntityTests
     {
         var entity = CreateEntity();
 
-        Assert.Throws<DomainException>(entity.Deactivate);
+        var exception = Assert.Throws<DomainException>(entity.Deactivate);
+
+        Assert.Equal("Example entity cannot transition from 'Inactive' to 'Inactive'.", exception.Message);
         Assert.Equal(ExampleStatus.Inactive, entity.Status);
     }
 

@@ -1,6 +1,8 @@
 using Example.Application.Interfaces.Repositories;
 using Example.Application.Interfaces.Services;
 using Example.Application.Models.Examples;
+using Example.Application.Services;
+using Example.Application.Validators.Examples;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -20,10 +22,26 @@ public sealed class DependencyInjectionTests
 
         services.AddApplication();
 
-        using var provider = services.BuildServiceProvider();
+        AssertScoped<IExampleService, ExampleService>(services);
+        AssertScoped<IValidator<CreateExampleModel>, CreateExampleValidator>(services);
+        AssertScoped<IValidator<UpdateExampleModel>, UpdateExampleValidator>(services);
 
-        Assert.NotNull(provider.GetRequiredService<IExampleService>());
-        Assert.NotNull(provider.GetRequiredService<IValidator<CreateExampleModel>>());
-        Assert.NotNull(provider.GetRequiredService<IValidator<UpdateExampleModel>>());
+        using var provider = services.BuildServiceProvider(
+            new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IExampleService>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IValidator<CreateExampleModel>>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IValidator<UpdateExampleModel>>());
+    }
+
+    private static void AssertScoped<TService, TImplementation>(IServiceCollection services)
+    {
+        Assert.Contains(
+            services,
+            descriptor =>
+                descriptor.ServiceType == typeof(TService) &&
+                descriptor.ImplementationType == typeof(TImplementation) &&
+                descriptor.Lifetime == ServiceLifetime.Scoped);
     }
 }

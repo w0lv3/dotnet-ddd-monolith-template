@@ -1,16 +1,23 @@
 using System.Diagnostics;
+using Example.Api.Authentication;
 using Example.Api.Middleware;
+using Example.Api.OpenApi;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Example.Api.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddApiServices(this IServiceCollection services)
+    public static IServiceCollection AddApi(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        bool isDevelopment)
     {
         services.AddControllers();
         services.AddProblemDetails();
         services.AddExceptionHandler<ApiExceptionHandler>();
+        services.AddApiAuthentication(configuration, isDevelopment);
+        services.AddApiOpenApi();
         services.Configure<ApiBehaviorOptions>(options =>
         {
             options.InvalidModelStateResponseFactory = context =>
@@ -42,5 +49,21 @@ public static class ServiceCollectionExtensions
         });
 
         return services;
+    }
+
+    public static WebApplication UseApi(this WebApplication app)
+    {
+        if (app.Configuration.GetValue<bool>("OpenApi:Enabled"))
+        {
+            app.MapApiOpenApi();
+        }
+
+        app.UseExceptionHandler();
+        app.UseHttpsRedirection();
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.MapControllers();
+
+        return app;
     }
 }
